@@ -11,6 +11,8 @@
     "ajv-keywords": "^5.1.0",
     "antd": "^5.27.0",
     "axios": "^1.11.0",
+    "braintree-web-drop-in": "^1.45.1",
+    "braintree-web-drop-in-react": "^1.2.1",
     "react": "^19.1.0",
     "react-dom": "^19.1.0",
     "react-helmet": "^6.1.0",

@@ -19,7 +19,7 @@ const Profile = () => {
 
 
     useEffect(()=>{
-        const {name, email, phone, address} = auth.user;
+        const {name, email, phone, address} = auth?.user;
         setName(name);
         setEmail(email);
         setPhone(phone);
