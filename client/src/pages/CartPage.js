@@ -7,6 +7,8 @@ import { useNavigate } from 'react-router-dom';
 import * as braintree from 'braintree-web-drop-in';
 import axios from 'axios';
 import toast from 'react-hot-toast';
+import "../styles/CartStyles.css";
+
 
 
 const CartPage = () => {
