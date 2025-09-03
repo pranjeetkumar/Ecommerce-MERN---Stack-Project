@@ -1,9 +1,10 @@
-import React, { useState, useEffect} from 'react'
+
+import React, { useState, useEffect, useRef} from 'react'
 import Layout from '../components/Layout/Layout';
 import { useCart } from '../context/cart';
 import { useAuth } from '../context/auth';
 import { useNavigate } from 'react-router-dom';
-import DropIn from "braintree-web-drop-in-react";
+import * as braintree from 'braintree-web-drop-in';
 import axios from 'axios';
 import toast from 'react-hot-toast';
 
@@ -12,27 +13,26 @@ const CartPage = () => {
 
     const [cart, setCart] = useCart();
     const navigate = useNavigate();
-    const [auth, setAuth] = useAuth();
-
-    const [clientToken, setClientToken] = useState("")
-    const [instance, setInstance] = useState("")
+    const [auth] = useAuth();
+    const [clientToken, setClientToken] = useState('');
+    const [instance, setInstance] = useState(null);
     const [loading, setLoading] = useState(false);
+    const dropInContainerRef = useRef(null);
+    const isMountedRef = useRef(true);
 
 
     const totalPrice = () => {
-        try{
-            let total = 0;
-            cart?.map((item) => {
-                total = total + item.price;
-            })
-            return total.toLocaleString('en-IN', {
-                style: "currency",
-                currency: "INR"
-            });
-        } catch (error) {
-            console.log(error)
-        }
-    }
+      try {
+        let total = cart?.reduce((acc, item) => acc + item.price, 0) || 0;
+        return total.toLocaleString("en-IN", {
+          style: "currency",
+          currency: "INR",
+        });
+      } catch (error) {
+        console.log(error);
+      }
+    };
+
 
     const removeCartItem = (pid) => {
         try{
@@ -67,6 +67,38 @@ const CartPage = () => {
 
 
 
+useEffect(() => {
+  if (clientToken && dropInContainerRef.current && !instance) {
+    braintree.create({
+        authorization: clientToken,
+        container: dropInContainerRef.current,
+      })
+      .then((createdInstance) => {
+        if (isMountedRef.current) {
+          setInstance(createdInstance);
+        }
+      })
+      .catch((error) => {
+        console.error("Braintree Drop-in initialization error:", error);
+        toast.error("Failed to initialize payment. Please try again.");
+      });
+  }
+
+  // Cleanup
+  return () => {
+    if (instance) {
+      instance
+        .teardown()
+        .then(() => setInstance(null))
+        .catch((error) =>
+          console.error("Braintree teardown error:", error)
+        );
+    }
+  };
+}, [clientToken]);
+
+
+
 
 
     const handlePayment = async () => {
@@ -74,7 +106,7 @@ const CartPage = () => {
         try {
             setLoading(true);
             const {nonce} = await instance.requestPaymentMethod();  
-            const {data} = await axios.post(`${process.env.REACT_APP_API}/api/v1/product/braintree/payment`, {
+            await axios.post(`${process.env.REACT_APP_API}/api/v1/product/braintree/payment`, {
                 nonce,
                 cart
             });
@@ -88,9 +120,6 @@ const CartPage = () => {
             console.log(error);
         }
     }
-
-
-
 
 
   return (
@@ -156,27 +185,23 @@ const CartPage = () => {
                             </>
                         )
                     }
-                    <div className='mt-2'>
+                    <div className='mt-2 mb-3'>
 
                         {
                             !clientToken || !auth?.user?.address || !cart?.length ? ("") : (
 
                                 <>
-
-                                 <DropIn
-                                    options={{
-                                        authorization: clientToken,
-                                        paypal: {
-                                            flow: 'vault'
-                                        }
-                                    }}
-                                    onInstance={instance => setInstance(instance)}
-                                    />
-
-                                    <button className='btn btn-primary' disabled={!clientToken || !instance || !auth?.user?.address} onClick={handlePayment}>
-                                        {loading ? "Processing ...." : "Make Payment"}
-                                    </button>
-
+                                  <div 
+                                    ref={dropInContainerRef} 
+                                    style={{ minHeight: '200px' }} 
+                                  />
+                                  <button
+                                    className="btn btn-primary"
+                                    onClick={handlePayment}
+                                    disabled={!instance || !auth?.user?.address || loading}
+                                  >
+                                    {loading ? 'Processing...' : 'Make Payment'}
+                                  </button>
                                 </>
                             )
                         }
@@ -189,4 +214,11 @@ const CartPage = () => {
   )
 }
 
+
 export default CartPage
+
+
+
+
+
+
